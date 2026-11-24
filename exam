@@ -1,0 +1,284 @@
+#LAB1 WORD
+gedit word.txt
+Hello world
+Hello Hadoop
+
+gedit mapper.py
+#!/usr/bin/python
+import sys
+for line in sys.stdin:
+    words = line.strip().split()
+    for word in words:
+        print("%s\t%s" % (word, 1))
+
+gedit reducer.py
+#!/usr/bin/env python
+import sys
+counts = {}
+for line in sys.stdin:
+    word, count = line.strip().split('\t')
+    counts[word] = counts.get(word, 0) + int(count)
+for word, count in counts.items():
+    print("%s\t%s" % (word, count))
+
+cat word.txt | python mapper.py | sort | python reducer.py
+
+hdfs dfs -mkdir prg1
+hdfs dfs -ls
+
+hdfs dfs -put /home/cloudera/word.txt /user/cloudera/prg1
+hdfs dfs -ls /user/cloudera/prg1
+
+chmod 777 mapper.py reducer.py
+hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar -input /user/cloudera/prg1/word.txt -output /user/cloudera/prg1/output -mapper /home/cloudera/mapper.py -reducer /home/cloudera/reducer.py
+
+hdfs dfs -cat /user/cloudera/prg1/output/part-00000
+
+
+#LAB2 TITANIC
+gedit titanic.txt
+Owen,male,22
+Hannah,female,38
+Laina,female,26
+Lily,female,35
+Allen,male,35
+Jack,male,28
+Emma,female,31
+Thomas,male,42
+Sophia,female,24
+William,male,30
+
+gedit mapper2.py
+#!/usr/bin/env python
+import sys
+import csv
+reader = csv.reader(sys.stdin)
+for line in reader:
+    if len(line) > 2:
+        print('%s,%s' % (line[1], line[2]))
+
+gedit reducer2.py
+#!/usr/bin/env python
+import sys
+data = {}
+for line in sys.stdin:
+    gender, age = line.strip().split(',')
+    if gender not in data:
+        data[gender] = [0, 0]
+    data[gender][0] += float(age)
+    data[gender][1] += 1
+for gender, values in data.items():
+    average = values[0] / values[1]
+    print("%s = %s" % (gender, average))
+
+cat titanic.txt | python mapper2.py | sort | python reducer2.py
+
+hdfs dfs -mkdir prg2
+hdfs dfs -put /home/cloudera/titanic.txt /user/cloudera/prg2
+hdfs dfs -ls /user/cloudera/prg2
+
+chmod 777 mapper2.py reducer2.py
+hadoop jar /usr/lib/hadoop-mapreduce/hadoop-streaming.jar -input /user/cloudera/prg2/titanic.txt -output /user/cloudera/prg2/output -mapper /home/cloudera/mapper2.py -reducer /home/cloudera/reducer2.py
+
+usehdfs dfs -cat /r/cloudera/prg2/output/part-00000
+hdfs dfs -rm -r /user/cloudera/prg2/output
+
+#LAB3 Implementation of Matrix Multiplication with Hadoop Map Reduce
+gedit input.txt
+a,0,0,1
+a,0,1,2
+a,1,0,3
+a,1,1,4
+b,0,0,5
+b,0,1,6
+b,1,0,7
+b,1,1,8
+
+gedit mapper3.py
+#!/usr/bin/env python
+import sys
+for line in sys.stdin:
+       p = line.strip().split(‘ , ’)
+       if len(p) == 4:
+             print "%s\t%s" % (p[0].lower(), ','.join(p))
+cat input.txt | python mapper3.py
+
+gedit reducer3.py
+#!/usr/bin/env python
+import sys
+a, b = {}, {}
+for line in sys.stdin:
+     try:
+              tag, val = line.strip().split('\t')
+              p = val.split(',')
+               i, j, v = int(p[1]), int(p[2]), int(p[3])
+                    if tag == 'a':
+                   a[i, j] = v
+               elif tag == 'b':
+                   b[i, j] = v
+       except:
+                       continue
+for i in range(2):
+         for j in range(2):
+         s = sum(a.get((i, k), 0) * b.get((k, j), 0) for k in range(2))
+                print "(%d,%d)\t%d" % (i, j, s)
+cat input.txt | python mapper3.py | sort | python reducer3.py
+hdfs dfs -mkdir prg3
+hdfs dfs -ls
+hdfs dfs -put/home/cloudera/input.txt /user/cloudera/prg3
+hdfs dfs -ls/user/cloudera/prg3
+chmod 777 mapper3.py reducer3.py
+hadoop jar/usr/lib/hadoop-mapreduce/hadoop-streaming.jar -input /user/cloudera/prg3/input.txt -output /user/cloudera/prg3/output -mapper /home/cloudera/mapper3.py -reducer /home/cloudera/reducer3.py
+hdfs dfs -cat /user/cloudera/prg3/output/part-00000
+
+
+#PART B
+#LAB4 Using Pig, find the most occurred start letter in dataset
+gedit word1.txt
+1, pooja, R, 20,
+2 , sam , Thomas ,25
+3, priya, S, 20
+4, pavan, Rao, 20
+
+pig -x local
+A = LOAD 'word1.txt' USING PigStorage(',') AS (id:int, first_name:chararray, last_name:chararray, age:int);
+B = FOREACH A GENERATE UPPER(SUBSTRING(first_name, 0, 1)) AS first_letter;
+C = GROUP B BY first_letter;
+D = FOREACH C GENERATE group AS first_letter, COUNT(B) AS count;
+E = ORDER D BY count DESC;
+F = LIMIT E 1;
+DUMP F;
+quit
+
+
+#LAB5 — Convert Spark RDD to DataFrame and Dataset
+gedit rdd.py
+from pyspark import SparkContext
+from pyspark.sql import SQLContext
+ 
+sc = SparkContext()
+sql = SQLContext(sc)
+ 
+rdd = sc.parallelize([
+    (1, "AIML", 69),
+    (2, "CS", 72),
+    (3, "ECE", 99)
+])
+ 
+df = sql.createDataFrame(rdd, ["No", "Dept", "No_of_students"])
+df.show()
+sc.stop()
+
+spark-submit rdd.py
+#LAB 6 Hadoop file management: adding, retrieving, deleting files
+hdfs dfs -mkdir lab4
+hdfs dfs -ls /user/cloudera/lab4
+hdfs dfs -put /home/cloudera/titanic.txt /user/cloudera/lab4
+hdfs dfs -ls /user/cloudera/lab4
+hdfs dfs -cat /user/cloudera/lab4/titanic.txt
+hdfs dfs -rm -r /user/cloudera/lab4
+
+
+#LAB 7 Retail Sales Analysis (PySpark)
+gedit retail.py
+from pyspark import SparkContext
+from pyspark.sql import SQLContext
+ 
+# Step 1: Start Spark
+sc = SparkContext()
+sql = SQLContext(sc)
+ 
+# Step 2: Create data
+data = [
+    ("Laptop", "Electronics", 50000),
+    ("Phone", "Electronics", 30000),
+    ("Rice", "Grocery", 5000),
+    ("Oil", "Grocery", 2000),
+    ("Chair", "Furniture", 4000),
+    ("Table", "Furniture", 8000)
+]
+ 
+# Step 3: Create DataFrame
+columns = ["Product", "Category", "Sales"]
+df = sql.createDataFrame(data, columns)
+ 
+# Step 4: Display all products
+print("All Products:")
+df.show()
+ 
+# Step 5: Filter sales above 5000
+print("Products with sales above 5000:")
+df.filter(df.Sales > 5000).show()
+ 
+# Step 6: Total sales by category
+print("Total Sales by Category:")
+df.groupBy("Category").sum("Sales").show()
+ 
+# Step 7: Find the highest-selling product
+print("Highest-Selling Product:")
+df.agg({"Sales": "max"}).show()
+ 
+# Step 8: Sort sales from highest to lowest
+print("Products sorted by Sales:")
+df.orderBy(df.Sales.desc()).show()
+ 
+# Step 9: Stop Spark
+sc.stop()
+
+spark-submit retail.py
+
+
+#LAB 8 Apache Pig: analyze product information (online shopping company)
+gedit products.txt
+Laptop,Electronics,50000
+Mobile,Electronics,20000
+Rice,Grocery,5000
+Oil,Grocery,2000
+Chair,Furniture,4000
+Table,Furniture,8000
+
+pig -x local;
+products = LOAD 'products.txt' USING PigStorage(',') AS (product:chararray, category:chararray, sales:int);
+DUMP products;
+
+grouped = GROUP products BY category;
+result = FOREACH grouped GENERATE group, COUNT(products);
+DUMP result;
+electronics = FILTER products BY category == 'Electronics';
+DUMP electronics;
+quit
+
+
+#LAB 9 PySpark DataFrame of student details; save output as text file in HDFS
+gedit student.py
+from pyspark import SparkContext
+from pyspark.sql import SQLContext
+ 
+# Start Spark
+sc = SparkContext()
+sql = SQLContext(sc)
+ 
+# Create DataFrame
+data = [
+    (1, "AIML", 69),
+    (2, "CS", 72),
+    (3, "ECE", 99)
+]
+ 
+# Step 3: Create DataFrame
+columns = ["No", "Dept", "No_of_students"]
+df = sql.createDataFrame(data, columns)
+ 
+# Display DataFrame
+df.show()
+ 
+# Save DataFrame
+df.rdd.saveAsTextFile("/user/cloudera/output_students")
+ 
+# Stop Spark
+sc.stop()
+
+spark-submit student.py
+hdfs dfs -ls /user/cloudera/output_students
+hdfs dfs -cat /user/cloudera/output_students/part-00000
+
